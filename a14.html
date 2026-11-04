@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A14 - Four Boxes ビジュアライザー</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            boxA: '#ef4444',
+            boxB: '#3b82f6',
+            boxC: '#10b981',
+            boxD: '#f59e0b',
+            accent: '#6366f1',
+          },
+          animation: {
+            'bounce-short': 'bounceShort 0.5s ease-in-out',
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            bounceShort: {
+              '0%, 100%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.15)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- ヘッダー -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <span class="bg-indigo-600 text-white text-xs font-black tracking-wider uppercase px-2.5 py-1 rounded-md shadow-sm">
+          鉄則本 A14
+        </span>
+        <h1 class="text-lg md:text-xl font-bold tracking-tight text-slate-900">
+          Four Boxes <span class="text-sm font-normal text-slate-500">（半分全列挙 × 二分探索）</span>
+        </h1>
+      </div>
+
+      <!-- 目標値 K バッジ表示 -->
+      <div class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 rounded-full">
+        <span class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">目標合計値</span>
+        <span class="text-base md:text-lg font-black font-mono text-indigo-900">K = <span id="headerTargetK">50</span></span>
+      </div>
+    </div>
+
+    <!-- メインナビゲーションタブ -->
+    <div class="max-w-6xl mx-auto px-4 flex border-t border-slate-100 overflow-x-auto space-x-2">
+      <button onclick="changeTab('play')" id="tabBtn-play" class="nav-tab py-2.5 px-4 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2 whitespace-nowrap transition-colors">
+        <span>🎮</span> ① ルール体験 & 判定
+      </button>
+      <button onclick="changeTab('algo')" id="tabBtn-algo" class="nav-tab py-2.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-colors">
+        <span>⚡</span> ② 二分探索ビジュアライザー
+      </button>
+      <button onclick="changeTab('complexity')" id="tabBtn-complexity" class="nav-tab py-2.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-colors">
+        <span>📊</span> ③ 1兆回 vs 2000万回（計算量）
+      </button>
+      <button onclick="changeTab('code')" id="tabBtn-code" class="nav-tab py-2.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-colors">
+        <span>💻</span> ④ 解法コード (C++ / Python)
+      </button>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ領域 -->
+  <main class="max-w-6xl w-full mx-auto p-4 md:p-6 flex-1 flex flex-col gap-6">
+
+    <!-- ==================== タブ 1: ルール体験 & 判定 ==================== -->
+    <section id="tab-play" class="tab-panel flex flex-col gap-6">
+      <!-- 概要カード -->
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 p-4 md:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>💡</span> 問題のルール
+          </h2>
+          <p class="text-sm text-slate-600 mt-1 leading-relaxed">
+            4 つの箱 <strong class="text-red-500">A</strong>, <strong class="text-blue-500">B</strong>, <strong class="text-emerald-500">C</strong>, <strong class="text-amber-500">D</strong> からカードを <strong>1 枚ずつ</strong> 選びます。<br class="hidden md:inline">
+            選んだ 4 枚の合計をちょうど <strong>K (<span id="ruleTargetK">50</span>)</strong> にできるでしょうか？ カードをクリックして試してみましょう！
+          </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="resetCardSelection()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition">
+            🔄 選択クリア
+          </button>
+          <button onclick="randomizeCards()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+            🎲 新しい問題生成
+          </button>
+        </div>
+      </div>
+
+      <!-- リアルタイム判定ボード -->
+      <div class="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm text-center relative overflow-hidden">
+        <div class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2">リアルタイム合計シミュレーター</div>
+        
+        <!-- 式の表示 -->
+        <div class="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-lg md:text-2xl font-bold font-mono">
+          <div id="slot-A" class="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-dashed border-red-300 bg-red-50/50 flex flex-col items-center justify-center text-red-600 transition-all duration-200">
+            <span class="text-[10px] font-sans font-bold text-red-400 uppercase">箱 A</span>
+            <span class="text-xl md:text-2xl font-black">?</span>
+          </div>
+          <span class="text-slate-400 font-normal">+</span>
+          <div id="slot-B" class="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 flex flex-col items-center justify-center text-blue-600 transition-all duration-200">
+            <span class="text-[10px] font-sans font-bold text-blue-400 uppercase">箱 B</span>
+            <span class="text-xl md:text-2xl font-black">?</span>
+          </div>
+          <span class="text-slate-400 font-normal">+</span>
+          <div id="slot-C" class="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 flex flex-col items-center justify-center text-emerald-600 transition-all duration-200">
+            <span class="text-[10px] font-sans font-bold text-emerald-400 uppercase">箱 C</span>
+            <span class="text-xl md:text-2xl font-black">?</span>
+          </div>
+          <span class="text-slate-400 font-normal">+</span>
+          <div id="slot-D" class="w-16 h-16 md:w-20 md:h-20 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 flex flex-col items-center justify-center text-amber-600 transition-all duration-200">
+            <span class="text-[10px] font-sans font-bold text-amber-400 uppercase">箱 D</span>
+            <span class="text-xl md:text-2xl font-black">?</span>
+          </div>
+          <span class="text-slate-400 font-normal">=</span>
+          <div class="px-5 py-3 rounded-xl bg-slate-100 min-w-[100px] flex flex-col items-center justify-center border border-slate-300">
+            <span class="text-[10px] font-sans font-bold text-slate-400 uppercase">現在の合計</span>
+            <span id="currentSum" class="text-2xl md:text-3xl font-black text-slate-700">0</span>
+          </div>
+        </div>
+
+        <!-- 判定バッジメッセージ -->
+        <div class="mt-5">
+          <div id="judgeBadge" class="inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm bg-slate-100 text-slate-500 border border-slate-200">
+            <span>👆 各箱から 1 枚ずつカードを選んでください</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4つの箱グリッド -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 箱 A -->
+        <div class="bg-white rounded-2xl border-2 border-red-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-red-100">
+            <span class="bg-red-500 text-white font-black text-xs px-2.5 py-1 rounded-md">箱 A</span>
+            <span class="text-xs text-red-500 font-semibold" id="count-A">3 枚</span>
+          </div>
+          <div id="cardsContainerA" class="flex flex-col gap-2.5"></div>
+        </div>
+
+        <!-- 箱 B -->
+        <div class="bg-white rounded-2xl border-2 border-blue-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-blue-100">
+            <span class="bg-blue-500 text-white font-black text-xs px-2.5 py-1 rounded-md">箱 B</span>
+            <span class="text-xs text-blue-500 font-semibold" id="count-B">3 枚</span>
+          </div>
+          <div id="cardsContainerB" class="flex flex-col gap-2.5"></div>
+        </div>
+
+        <!-- 箱 C -->
+        <div class="bg-white rounded-2xl border-2 border-emerald-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-emerald-100">
+            <span class="bg-emerald-500 text-white font-black text-xs px-2.5 py-1 rounded-md">箱 C</span>
+            <span class="text-xs text-emerald-500 font-semibold" id="count-C">3 枚</span>
+          </div>
+          <div id="cardsContainerC" class="flex flex-col gap-2.5"></div>
+        </div>
+
+        <!-- 箱 D -->
+        <div class="bg-white rounded-2xl border-2 border-amber-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-amber-100">
+            <span class="bg-amber-500 text-white font-black text-xs px-2.5 py-1 rounded-md">箱 D</span>
+            <span class="text-xs text-amber-500 font-semibold" id="count-D">3 枚</span>
+          </div>
+          <div id="cardsContainerD" class="flex flex-col gap-2.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== タブ 2: 半分全列挙 × 二分探索ビジュアライザー ==================== -->
+    <section id="tab-algo" class="tab-panel hidden flex flex-col gap-6">
+      
+      <!-- コントロールバー -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center flex-wrap gap-2">
+          <button id="btnPrev" onclick="stepPrev()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <span>⏮</span> 1手戻る
+          </button>
+          <button id="btnPlayPause" onclick="togglePlay()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <span id="playIcon">▶</span> <span id="playText">自動再生</span>
+          </button>
+          <button id="btnNext" onclick="stepNext()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <span>⏭</span> 1手進む
+          </button>
+          <button onclick="resetSimulation()" class="px-3 py-2 bg-slate-50 border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-xl transition">
+            🔄 リセット
+          </button>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs font-semibold text-slate-600">
+          <div class="flex items-center gap-2">
+            <span>再生速度:</span>
+            <select id="speedSelect" class="bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono font-bold focus:outline-none">
+              <option value="1500">ゆっくり (1.5秒)</option>
+              <option value="800" selected>標準 (0.8秒)</option>
+              <option value="350">高速 (0.35秒)</option>
+            </select>
+          </div>
+          <div class="bg-slate-100 px-3 py-1.5 rounded-lg font-mono">
+            Step: <span id="stepCounter" class="text-indigo-600 font-bold">0</span> / <span id="stepTotal">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- リアルタイム状況解説ボード -->
+      <div class="bg-slate-900 text-white rounded-2xl p-5 shadow-lg relative border border-slate-800 overflow-hidden">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span class="text-xs uppercase font-mono tracking-widest text-slate-400">Execution Monitor</span>
+          </div>
+          <div id="algoStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded bg-slate-800 text-slate-300">
+            準備完了
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+            <div class="text-[11px] text-slate-400 font-semibold mb-1">現在の P の値 (A + B)</div>
+            <div class="text-xl font-bold font-mono text-indigo-300 flex items-center justify-between">
+              <span>p = <span id="monitorP">--</span></span>
+              <span class="text-xs font-normal text-slate-400" id="monitorPIdx">インデックス: --</span>
+            </div>
+          </div>
+          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+            <div class="text-[11px] text-slate-400 font-semibold mb-1">Q の中で探すべき相方の値</div>
+            <div class="text-xl font-bold font-mono text-pink-400">
+              target = K - p = <span id="monitorTarget">--</span>
+            </div>
+          </div>
+          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+            <div class="text-[11px] text-slate-400 font-semibold mb-1">二分探索のポインタ [L, Mid, R]</div>
+            <div class="text-xl font-bold font-mono text-amber-300 flex items-center gap-2">
+              <span id="monitorPointers">L: - | M: - | R: -</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="stepCommentary" class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-sm leading-relaxed text-slate-200 font-sans">
+          「1手進む」または「自動再生」を押すと、配列 P の各要素に対して、配列 Q からの高速な二分探索が開始されます。
+        </div>
+      </div>
+
+      <!-- 配列 P の表示 (A + B の全通り) -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
+              前半グループの和: 配列 P = [箱A + 箱B]
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">箱A と 箱B のすべての組み合わせの和（計 <span id="countP">9</span> 通り）</p>
+          </div>
+          <span class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-1 rounded">左から1つずつ走査</span>
+        </div>
+        <div id="arrayPContainer" class="flex flex-wrap gap-2 pt-2 pb-1 overflow-x-auto"></div>
+      </div>
+
+      <!-- 配列 Q の表示 (C + D の全通り・ソート済み) -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+              後半グループの和: 配列 Q = [箱C + 箱D] （昇順ソート済み）
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">二分探索を行うため、あらかじめ小さい順にソートされています（計 <span id="countQ">9</span> 通り）</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-100 border border-blue-400 inline-block"></span> 探索範囲 [L, R]</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-pink-500 text-white inline-block"></span> 中央値 (Mid)</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500 text-white inline-block"></span> 発見 (Match)</span>
+          </div>
+        </div>
+        <div id="arrayQContainer" class="flex flex-wrap gap-2 pt-3 pb-2 overflow-x-auto min-h-[90px] items-end"></div>
+      </div>
+    </section>
+
+    <!-- ==================== タブ 3: 計算量の壁の解説 ==================== -->
+    <section id="tab-complexity" class="tab-panel hidden flex flex-col gap-6">
+      
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+          <span>💥</span> なぜ 4 重ループだと間に合わないのか？
+        </h2>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          この問題の制約は <strong class="text-indigo-600">N ≤ 1000</strong>、制限時間は <strong class="text-indigo-600">5.0 秒</strong> です。<br>
+          一般的なオンラインジャッジ（AtCoderなど）では、1 秒間に処理できるループ回数はおよそ <strong>10<sup>8</sup> 回（1 億回）</strong> 程度です。
+        </p>
+
+        <!-- インタラクティブスライダー -->
+        <div class="my-6 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <label for="sliderN" class="text-sm font-bold text-slate-700">各箱のカード枚数 N を動かしてみる:</label>
+            <span class="font-mono text-xl font-black text-indigo-600">N = <span id="displayN">1000</span></span>
+          </div>
+          <input type="range" id="sliderN" min="10" max="1000" step="10" value="1000" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" oninput="updateComplexity(this.value)">
+          <div class="flex justify-between text-[11px] text-slate-400 mt-1 font-mono">
+            <span>N=10</span>
+            <span>N=200</span>
+            <span>N=500</span>
+            <span>N=1000 (最大値)</span>
+          </div>
+        </div>
+
+        <!-- 比較カード -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- 愚直解法 -->
+          <div class="border-2 border-red-200 bg-red-50/40 rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">愚直な全探索 (4重ループ)</span>
+                <span class="text-xs font-mono font-bold text-red-600">O(N⁴)</span>
+              </div>
+              <div class="text-xs text-slate-600 mb-4">
+                A × B × C × D のすべての組み合わせをそのまま調べる
+              </div>
+              <div class="space-y-3 font-mono">
+                <div>
+                  <div class="text-[11px] text-slate-500">計算回数:</div>
+                  <div id="opsNaive" class="text-2xl font-black text-red-600">1,000,000,000,000 回</div>
+                  <div id="opsNaiveWords" class="text-xs text-red-500 font-sans font-bold">（1兆回！）</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">推定実行時間:</div>
+                  <div id="timeNaive" class="text-lg font-bold text-slate-800">約 10,000 秒 (約 2.7 時間)</div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-red-200/60 flex items-center gap-2 text-xs font-bold text-red-700">
+              <span>❌</span> TLE（大幅に制限時間をオーバー）
+            </div>
+          </div>
+
+          <!-- 半分全列挙 + 二分探索 -->
+          <div class="border-2 border-emerald-300 bg-emerald-50/40 rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">半分全列挙 ＋ 二分探索</span>
+                <span class="text-xs font-mono font-bold text-emerald-700">O(N² log N)</span>
+              </div>
+              <div class="text-xs text-slate-600 mb-4">
+                (A+B) と (C+D) に分割し、後半をソートして二分探索
+              </div>
+              <div class="space-y-3 font-mono">
+                <div>
+                  <div class="text-[11px] text-slate-500">計算回数:</div>
+                  <div id="opsMeet" class="text-2xl font-black text-emerald-600">約 20,000,000 回</div>
+                  <div id="opsMeetWords" class="text-xs text-emerald-600 font-sans font-bold">（たったの 2000 万回！）</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">推定実行時間:</div>
+                  <div id="timeMeet" class="text-lg font-bold text-slate-800">約 0.15 秒</div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-emerald-200/60 flex items-center gap-2 text-xs font-bold text-emerald-700">
+              <span>⭕</span> AC（制限時間 5.0秒 に対し余裕で合格！）
+            </div>
+          </div>
+        </div>
+
+        <!-- アルゴリズムの核心ポイント -->
+        <div class="mt-6 bg-slate-900 text-slate-200 p-5 rounded-2xl">
+          <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+            <span>✨</span> 競技プログラミングの鉄則: 「半分全列挙 (Meet in the Middle)」
+          </h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            対象の要素数が 4 つ（$A, B, C, D$）あってそのままでは指数・高次多項式で爆発するとき、<strong>「前半 2 つ」と「後半 2 つ」に分割</strong>します。<br>
+            前半の和 $p = A_i + B_j$ を全列挙したとき、$A_i + B_j + C_k + D_l = K$ が成り立つための条件は、<br>
+            <span class="inline-block my-2 px-3 py-1 rounded bg-slate-800 font-mono text-pink-300 font-bold text-sm">
+              C_k + D_l = K - p
+            </span><br>
+            となります。後半の全通り $C_k + D_l$ を配列 $Q$ にあらかじめ集めてソートしておけば、<strong>値 $(K - p)$ が存在するかどうかを $O(\log N)$ で高速判定</strong>できます。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== タブ 4: 解法コード ==================== -->
+    <section id="tab-code" class="tab-panel hidden flex flex-col gap-6">
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">模範解答コード (A14)</h2>
+            <p class="text-xs text-slate-500 mt-1">C++ の `std::binary_search` または Python の `bisect` を使用した鉄則解法です。</p>
+          </div>
+          <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            <button onclick="switchLang('cpp')" id="langBtn-cpp" class="px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition">C++</button>
+            <button onclick="switchLang('python')" id="langBtn-python" class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition">Python</button>
+          </div>
+        </div>
+
+        <!-- C++ コード -->
+        <div id="codeBlock-cpp" class="relative">
+          <pre class="bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto leading-relaxed"><code>#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    long long K;
+    if (!(cin >> N >> K)) return 0;
+
+    vector&lt;long long&gt; A(N), B(N), C(N), D(N);
+    for (int i = 0; i &lt; N; i++) cin >> A[i];
+    for (int i = 0; i &lt; N; i++) cin >> B[i];
+    for (int i = 0; i &lt; N; i++) cin >> C[i];
+    for (int i = 0; i &lt; N; i++) cin >> D[i];
+
+    // 1. 前半グループ (A + B) の和をすべて列挙 (N^2 通り)
+    vector&lt;long long&gt; P;
+    P.reserve(N * N);
+    for (int i = 0; i &lt; N; i++) {
+        for (int j = 0; j &lt; N; j++) {
+            P.push_back(A[i] + B[j]);
+        }
+    }
+
+    // 2. 後半グループ (C + D) の和をすべて列挙 (N^2 通り)
+    vector&lt;long long&gt; Q;
+    Q.reserve(N * N);
+    for (int i = 0; i &lt; N; i++) {
+        for (int j = 0; j &lt; N; j++) {
+            Q.push_back(C[i] + D[j]);
+        }
+    }
+
+    // 3. 後半配列 Q を昇順にソート (二分探索のため)
+    sort(Q.begin(), Q.end());
+
+    // 4. P の各要素に対し、相方 (K - p) が Q に存在するか二分探索
+    for (long long p : P) {
+        long long target = K - p;
+        if (binary_search(Q.begin(), Q.end(), target)) {
+            cout &lt;&lt; "Yes\n";
+            return 0; // 見つかったら即座に終了
+        }
+    }
+
+    cout &lt;&lt; "No\n";
+    return 0;
+}</code></pre>
+        </div>
+
+        <!-- Python コード -->
+        <div id="codeBlock-python" class="relative hidden">
+          <pre class="bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto leading-relaxed"><code>import sys
+import bisect
+
+def main():
+    input = sys.stdin.read
+    data = input().split()
+    if not data:
+        return
+
+    N = int(data[0])
+    K = int(data[1])
+
+    idx = 2
+    A = [int(x) for x in data[idx : idx + N]]; idx += N
+    B = [int(x) for x in data[idx : idx + N]]; idx += N
+    C = [int(x) for x in data[idx : idx + N]]; idx += N
+    D = [int(x) for x in data[idx : idx + N]]; idx += N
+
+    # 1. 前半 (A + B) の和を列挙 (N^2 通り)
+    P = [a + b for a in A for b in B]
+
+    # 2. 後半 (C + D) の和を列挙 (N^2 通り)
+    Q = [c + d for c in C for d in D]
+
+    # 3. 後半配列 Q をソート
+    Q.sort()
+
+    # 4. P の各要素に対し、K - p を二分探索 (bisect)
+    len_q = len(Q)
+    for p in P:
+        target = K - p
+        pos = bisect.bisect_left(Q, target)
+        if pos &lt; len_q and Q[pos] == target:
+            print("Yes")
+            return
+
+    print("No")
+
+if __name__ == "__main__":
+    main()</code></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- フッター -->
+  <footer class="mt-auto border-t border-slate-200 py-4 text-center text-xs text-slate-400 bg-white">
+    AtCoder 鉄則本 A14 - Four Boxes 学習用ビジュアライザー
+  </footer>
+
+  <!-- ==================== JavaScript ロジック ==================== -->
+  <script>
+    // --- 状態管理 ---
+    let state = {
+      targetK: 50,
+      cards: {
+        A: [5, 12, 17],
+        B: [3, 8, 15],
+        C: [4, 10, 20],
+        D: [6, 15, 23]
+      },
+      selected: { A: null, B: null, C: null, D: null },
+      P: [],
+      Q: [],
+      steps: [],
+      currentStepIdx: 0,
+      isPlaying: false,
+      playTimer: null
+    };
+
+    // --- 初期化 ---
+    window.addEventListener('DOMContentLoaded', () => {
+      initApp();
+      updateComplexity(1000);
+    });
+
+    function initApp() {
+      renderCardsInPlayTab();
+      updatePlayStatus();
+      buildHalfEnumerationData();
+      generateSimulationSteps();
+      renderSimulationState();
+    }
+
+    // --- タブ切り替え ---
+    function changeTab(tabId) {
+      if (state.isPlaying) togglePlay(); // タブ移動時は自動再生一時停止
+
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(b => {
+        b.classList.remove('border-indigo-600', 'text-indigo-600');
+        b.classList.add('border-transparent', 'text-slate-500');
+      });
+
+      const targetPanel = document.getElementById('tab-' + tabId);
+      const targetBtn = document.getElementById('tabBtn-' + tabId);
+      if (targetPanel && targetBtn) {
+        targetPanel.classList.remove('hidden');
+        targetBtn.classList.remove('border-transparent', 'text-slate-500');
+        targetBtn.classList.add('border-indigo-600', 'text-indigo-600');
+      }
+    }
+
+    // --- タブ 1: カード選択 & 判定 ロジック ---
+    function renderCardsInPlayTab() {
+      ['A', 'B', 'C', 'D'].forEach(boxKey => {
+        const container = document.getElementById('cardsContainer' + boxKey);
+        const countBadge = document.getElementById('count-' + boxKey);
+        container.innerHTML = '';
+        countBadge.textContent = `${state.cards[boxKey].length} 枚`;
+
+        state.cards[boxKey].forEach((val, idx) => {
+          const btn = document.createElement('button');
+          const isSelected = state.selected[boxKey] === val;
+          
+          let colorClasses = '';
+          if (boxKey === 'A') colorClasses = isSelected ? 'bg-red-500 text-white border-red-600 ring-2 ring-red-400' : 'bg-red-50/60 hover:bg-red-100 text-red-700 border-red-200';
+          if (boxKey === 'B') colorClasses = isSelected ? 'bg-blue-500 text-white border-blue-600 ring-2 ring-blue-400' : 'bg-blue-50/60 hover:bg-blue-100 text-blue-700 border-blue-200';
+          if (boxKey === 'C') colorClasses = isSelected ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-400' : 'bg-emerald-50/60 hover:bg-emerald-100 text-emerald-700 border-emerald-200';
+          if (boxKey === 'D') colorClasses = isSelected ? 'bg-amber-500 text-white border-amber-600 ring-2 ring-amber-400' : 'bg-amber-50/60 hover:bg-amber-100 text-amber-700 border-amber-200';
+
+          btn.className = `w-full py-2 px-3 rounded-xl border text-sm font-bold font-mono transition-all transform active:scale-95 flex items-center justify-between ${colorClasses}`;
+          btn.innerHTML = `<span>カード #${idx+1}</span><span class="text-base font-black">${val}</span>`;
+          btn.onclick = () => selectCard(boxKey, val);
+          container.appendChild(btn);
+        });
+      });
+    }
+
+    function selectCard(boxKey, val) {
+      if (state.selected[boxKey] === val) {
+        state.selected[boxKey] = null; // 同じカードを押すと解除
+      } else {
+        state.selected[boxKey] = val;
+      }
+      renderCardsInPlayTab();
+      updatePlayStatus();
+    }
+
+    function resetCardSelection() {
+      state.selected = { A: null, B: null, C: null, D: null };
+      renderCardsInPlayTab();
+      updatePlayStatus();
+    }
+
+    function randomizeCards() {
+      // ちょうど K になる組み合わせを 1 つ保証してカード生成
+      const target = 50;
+      state.targetK = target;
+      document.getElementById('headerTargetK').textContent = target;
+      document.getElementById('ruleTargetK').textContent = target;
+
+      // ランダム値の割り振り
+      const a = 5 + Math.floor(Math.random() * 15);
+      const b = 5 + Math.floor(Math.random() * 15);
+      const c = 5 + Math.floor(Math.random() * 15);
+      const d = target - (a + b + c);
+
+      function makeBox(mustVal) {
+        const s = new Set([mustVal]);
+        while (s.size < 3) {
+          s.add(2 + Math.floor(Math.random() * 25));
+        }
+        return Array.from(s).sort((x, y) => x - y);
+      }
+
+      state.cards.A = makeBox(a);
+      state.cards.B = makeBox(b);
+      state.cards.C = makeBox(c);
+      state.cards.D = makeBox(d > 0 ? d : 15);
+
+      resetCardSelection();
+      buildHalfEnumerationData();
+      generateSimulationSteps();
+      resetSimulation();
+    }
+
+    function updatePlayStatus() {
+      const { A, B, C, D } = state.selected;
+      
+      const slotA = document.getElementById('slot-A');
+      const slotB = document.getElementById('slot-B');
+      const slotC = document.getElementById('slot-C');
+      const slotD = document.getElementById('slot-D');
+
+      slotA.children[1].textContent = A !== null ? A : '?';
+      slotB.children[1].textContent = B !== null ? B : '?';
+      slotC.children[1].textContent = C !== null ? C : '?';
+      slotD.children[1].textContent = D !== null ? D : '?';
+
+      const currentSumEl = document.getElementById('currentSum');
+      const judgeBadge = document.getElementById('judgeBadge');
+
+      const allSelected = (A !== null && B !== null && C !== null && D !== null);
+      if (allSelected) {
+        const sum = A + B + C + D;
+        currentSumEl.textContent = sum;
+
+        if (sum === state.targetK) {
+          currentSumEl.className = "text-2xl md:text-3xl font-black text-emerald-600 animate-bounce-short";
+          judgeBadge.className = "inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-bold text-sm bg-emerald-100 text-emerald-800 border-2 border-emerald-400 shadow-sm animate-pulse-fast";
+          judgeBadge.innerHTML = `<span>🎉</span> 判定: Yes! (合計がちょうど K = ${state.targetK} になりました！)`;
+        } else {
+          currentSumEl.className = "text-2xl md:text-3xl font-black text-red-600";
+          judgeBadge.className = "inline-flex items-center gap-2 px-6 py-2 rounded-full font-bold text-sm bg-red-100 text-red-700 border border-red-300";
+          judgeBadge.innerHTML = `<span>❌</span> 判定: 合計 ${sum} (目標 ${state.targetK} と一致しません)`;
+        }
+      } else {
+        const partialSum = (A || 0) + (B || 0) + (C || 0) + (D || 0);
+        currentSumEl.textContent = partialSum;
+        currentSumEl.className = "text-2xl md:text-3xl font-black text-slate-700";
+        judgeBadge.className = "inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-sm bg-slate-100 text-slate-500 border border-slate-200";
+        judgeBadge.innerHTML = `<span>👆 各箱から 1 枚ずつカードを選んでください</span>`;
+      }
+    }
+
+    // --- 半分全列挙のデータ生成 ---
+    function buildHalfEnumerationData() {
+      // P = A + B
+      state.P = [];
+      state.cards.A.forEach(a => {
+        state.cards.B.forEach(b => {
+          state.P.push({ val: a + b, fromA: a, fromB: b });
+        });
+      });
+
+      // Q = C + D (ソート)
+      const rawQ = [];
+      state.cards.C.forEach(c => {
+        state.cards.D.forEach(d => {
+          rawQ.push({ val: c + d, fromC: c, fromD: d });
+        });
+      });
+      rawQ.sort((x, y) => x.val - y.val);
+      state.Q = rawQ;
+
+      document.getElementById('countP').textContent = state.P.length;
+      document.getElementById('countQ').textContent = state.Q.length;
+    }
+
+    // --- 二分探索ステップの事前生成 ---
+    function generateSimulationSteps() {
+      const steps = [];
+      const K = state.targetK;
+      const P = state.P;
+      const Q = state.Q;
+
+      // 初期状態
+      steps.push({
+        type: 'init',
+        pIdx: -1,
+        target: null,
+        L: -1,
+        R: -1,
+        mid: -1,
+        found: false,
+        comment: '探索開始前です。「1手進む」を押して二分探索を始めましょう。'
+      });
+
+      let foundGlobal = false;
+
+      for (let pIdx = 0; pIdx < P.length; pIdx++) {
+        if (foundGlobal) break;
+
+        const currentP = P[pIdx].val;
+        const targetQ = K - currentP;
+
+        // P[pIdx] に着目し、探索範囲初期化ステップ
+        steps.push({
+          type: 'start_p',
+          pIdx: pIdx,
+          target: targetQ,
+          L: 0,
+          R: Q.length - 1,
+          mid: -1,
+          found: false,
+          comment: `配列 P の [${pIdx}] 番目の値 <strong>p = ${currentP}</strong> に着目。<br>探す相方の値は <strong>target = K - p = ${K} - ${currentP} = ${targetQ}</strong> です。配列 Q の全体 [0 ～ ${Q.length - 1}] から二分探索を開始します。`
+        });
+
+        let L = 0;
+        let R = Q.length - 1;
+
+        while (L <= R) {
+          const mid = Math.floor((L + R) / 2);
+          const midVal = Q[mid].val;
+
+          // 中央値チェックステップ
+          if (midVal === targetQ) {
+            steps.push({
+              type: 'found',
+              pIdx: pIdx,
+              target: targetQ,
+              L: L,
+              R: R,
+              mid: mid,
+              found: true,
+              comment: `🎉 <strong>発見！</strong> 中央の <strong>Q[${mid}] = ${midVal}</strong> が探していた値 <strong>${targetQ}</strong> と完全一致しました！<br><span class="text-emerald-300 font-mono font-bold">P[${pIdx}] (${currentP}) + Q[${mid}] (${midVal}) = ${K}</span> が成立するため、判定結果は <strong>Yes</strong> です！`
+            });
+            foundGlobal = true;
+            break;
+          } else if (midVal < targetQ) {
+            steps.push({
+              type: 'mid_less',
+              pIdx: pIdx,
+              target: targetQ,
+              L: L,
+              R: R,
+              mid: mid,
+              found: false,
+              comment: `中央値 <strong>Q[${mid}] = ${midVal}</strong> を検査。<br>Q[${mid}] (${midVal}) &lt; target (${targetQ}) なので、${midVal} 以下の左側には target は存在しません。<br>➜ 探索範囲を <strong>右半分 [${mid + 1} ～ ${R}]</strong> に絞り込みます。`
+            });
+            L = mid + 1;
+          } else {
+            steps.push({
+              type: 'mid_greater',
+              pIdx: pIdx,
+              target: targetQ,
+              L: L,
+              R: R,
+              mid: mid,
+              found: false,
+              comment: `中央値 <strong>Q[${mid}] = ${midVal}</strong> を検査。<br>Q[${mid}] (${midVal}) &gt; target (${targetQ}) なので、${midVal} 以上の右側には target は存在しません。<br>➜ 探索範囲を <strong>左半分 [${L} ～ ${mid - 1}]</strong> に絞り込みます。`
+            });
+            R = mid - 1;
+          }
+        }
+
+        if (!foundGlobal) {
+          steps.push({
+            type: 'p_not_found',
+            pIdx: pIdx,
+            target: targetQ,
+            L: L,
+            R: R,
+            mid: -1,
+            found: false,
+            comment: `探索範囲が交差（L &gt; R）したため、配列 Q 内に <strong>${targetQ}</strong> は存在しませんでした。<br>次の P の要素へ進みます。`
+          });
+        }
+      }
+
+      if (!foundGlobal) {
+        steps.push({
+          type: 'all_failed',
+          pIdx: P.length - 1,
+          target: null,
+          L: -1,
+          R: -1,
+          mid: -1,
+          found: false,
+          comment: `配列 P のすべての要素について探索しましたが、和が ${K} になる組み合わせはありませんでした。<br>判定結果は <strong>No</strong> です。`
+        });
+      }
+
+      state.steps = steps;
+      state.currentStepIdx = 0;
+      document.getElementById('stepTotal').textContent = steps.length - 1;
+    }
+
+    // --- シミュレーション描画 ---
+    function renderSimulationState() {
+      const step = state.steps[state.currentStepIdx];
+      if (!step) return;
+
+      document.getElementById('stepCounter').textContent = state.currentStepIdx;
+
+      // モニター数値の更新
+      const monitorP = document.getElementById('monitorP');
+      const monitorPIdx = document.getElementById('monitorPIdx');
+      const monitorTarget = document.getElementById('monitorTarget');
+      const monitorPointers = document.getElementById('monitorPointers');
+      const stepCommentary = document.getElementById('stepCommentary');
+      const algoStatusBadge = document.getElementById('algoStatusBadge');
+
+      if (step.pIdx >= 0) {
+        monitorP.textContent = state.P[step.pIdx].val;
+        monitorPIdx.textContent = `インデックス: [${step.pIdx}]`;
+      } else {
+        monitorP.textContent = '--';
+        monitorPIdx.textContent = '未選択';
+      }
+
+      monitorTarget.textContent = step.target !== null ? step.target : '--';
+
+      if (step.L >= 0 && step.R >= 0) {
+        monitorPointers.innerHTML = `<span class="text-blue-400">L:${step.L}</span> | <span class="text-pink-400">M:${step.mid >= 0 ? step.mid : '-'}</span> | <span class="text-blue-400">R:${step.R}</span>`;
+      } else {
+        monitorPointers.textContent = 'L: - | M: - | R: -';
+      }
+
+      stepCommentary.innerHTML = step.comment;
+
+      // バッジ
+      if (step.found) {
+        algoStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-emerald-500 text-white animate-bounce-short";
+        algoStatusBadge.textContent = "Yes! 解を発見";
+      } else if (step.type === 'all_failed') {
+        algoStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-red-500 text-white";
+        algoStatusBadge.textContent = "No! 存在しません";
+      } else if (state.currentStepIdx === 0) {
+        algoStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-slate-800 text-slate-300";
+        algoStatusBadge.textContent = "待機中";
+      } else {
+        algoStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-indigo-600 text-white";
+        algoStatusBadge.textContent = "探索実行中";
+      }
+
+      // 配列 P のレンダリング
+      const arrayPContainer = document.getElementById('arrayPContainer');
+      arrayPContainer.innerHTML = '';
+      state.P.forEach((item, idx) => {
+        const el = document.createElement('div');
+        const isActive = (idx === step.pIdx);
+        const isMatched = (step.found && idx === step.pIdx);
+
+        let cls = "flex flex-col items-center justify-center min-w-[54px] px-2 py-1.5 rounded-xl border text-xs font-mono transition-all duration-200 ";
+        if (isMatched) {
+          cls += "bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-400 font-bold scale-105 shadow-md";
+        } else if (isActive) {
+          cls += "bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300 font-bold scale-105 shadow-sm";
+        } else {
+          cls += "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100";
+        }
+
+        el.className = cls;
+        el.innerHTML = `
+          <span class="text-[9px] opacity-70">P[${idx}]</span>
+          <span class="text-sm font-black">${item.val}</span>
+          <span class="text-[8px] opacity-60">(${item.fromA}+${item.fromB})</span>
+        `;
+        arrayPContainer.appendChild(el);
+      });
+
+      // 配列 Q のレンダリング
+      const arrayQContainer = document.getElementById('arrayQContainer');
+      arrayQContainer.innerHTML = '';
+      state.Q.forEach((item, idx) => {
+        const el = document.createElement('div');
+        const inRange = (step.L >= 0 && step.R >= 0 && idx >= step.L && idx <= step.R);
+        const isMid = (idx === step.mid);
+        const isFound = (step.found && idx === step.mid);
+
+        let cls = "relative flex flex-col items-center justify-center min-w-[54px] px-2 py-2 rounded-xl border text-xs font-mono transition-all duration-200 ";
+        
+        if (isFound) {
+          cls += "bg-emerald-500 text-white border-emerald-600 ring-4 ring-emerald-300 font-black scale-110 shadow-lg z-10 animate-bounce-short";
+        } else if (isMid) {
+          cls += "bg-pink-500 text-white border-pink-600 ring-2 ring-pink-300 font-black scale-105 shadow-md z-10";
+        } else if (inRange) {
+          cls += "bg-blue-50 text-blue-900 border-blue-300 font-bold";
+        } else {
+          cls += "bg-slate-100 text-slate-400 border-slate-200 opacity-40";
+        }
+
+        // ポインタマーカー (L, R)
+        let markers = '';
+        if (idx === step.L && idx === step.R && !step.found) {
+          markers = `<span class="absolute -top-5 text-[10px] font-bold text-indigo-600 bg-indigo-100 px-1 rounded">L=R</span>`;
+        } else if (idx === step.L && !step.found) {
+          markers = `<span class="absolute -top-5 text-[10px] font-bold text-blue-600 bg-blue-100 px-1 rounded">L</span>`;
+        } else if (idx === step.R && !step.found) {
+          markers = `<span class="absolute -top-5 text-[10px] font-bold text-blue-600 bg-blue-100 px-1 rounded">R</span>`;
+        }
+
+        el.className = cls;
+        el.innerHTML = `
+          ${markers}
+          <span class="text-[9px] opacity-70">Q[${idx}]</span>
+          <span class="text-sm font-black">${item.val}</span>
+          <span class="text-[8px] opacity-60">(${item.fromC}+${item.fromD})</span>
+        `;
+        arrayQContainer.appendChild(el);
+      });
+
+      // ボタンの無効化制御
+      document.getElementById('btnPrev').disabled = (state.currentStepIdx === 0);
+      document.getElementById('btnNext').disabled = (state.currentStepIdx === state.steps.length - 1);
+    }
+
+    // --- シミュレーション操作 ---
+    function stepNext() {
+      if (state.currentStepIdx < state.steps.length - 1) {
+        state.currentStepIdx++;
+        renderSimulationState();
+      } else {
+        if (state.isPlaying) togglePlay();
+      }
+    }
+
+    function stepPrev() {
+      if (state.currentStepIdx > 0) {
+        state.currentStepIdx--;
+        renderSimulationState();
+      }
+    }
+
+    function resetSimulation() {
+      if (state.isPlaying) togglePlay();
+      state.currentStepIdx = 0;
+      renderSimulationState();
+    }
+
+    function togglePlay() {
+      state.isPlaying = !state.isPlaying;
+      const btn = document.getElementById('btnPlayPause');
+      const icon = document.getElementById('playIcon');
+      const text = document.getElementById('playText');
+
+      if (state.isPlaying) {
+        icon.textContent = '⏸';
+        text.textContent = '停止';
+        btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+        btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+        
+        const speed = parseInt(document.getElementById('speedSelect').value, 10);
+        state.playTimer = setInterval(() => {
+          if (state.currentStepIdx < state.steps.length - 1) {
+            stepNext();
+          } else {
+            togglePlay();
+          }
+        }, speed);
+      } else {
+        icon.textContent = '▶';
+        text.textContent = '自動再生';
+        btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+        btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+        if (state.playTimer) {
+          clearInterval(state.playTimer);
+          state.playTimer = null;
+        }
+      }
+    }
+
+    // --- タブ 3: 計算量スライダー連動 ---
+    function updateComplexity(val) {
+      const N = parseInt(val, 10);
+      document.getElementById('displayN').textContent = N;
+
+      // 愚直 O(N^4)
+      const naiveOps = Math.pow(N, 4);
+      document.getElementById('opsNaive').textContent = naiveOps.toLocaleString() + " 回";
+
+      if (naiveOps >= 1e12) {
+        document.getElementById('opsNaiveWords').textContent = `（約 ${(naiveOps / 1e12).toFixed(1)} 兆回！）`;
+      } else if (naiveOps >= 1e8) {
+        document.getElementById('opsNaiveWords').textContent = `（約 ${(naiveOps / 1e8).toFixed(1)} 億回！）`;
+      } else {
+        document.getElementById('opsNaiveWords').textContent = `（約 ${naiveOps.toLocaleString()} 回）`;
+      }
+
+      // 推定時間 (1秒 = 10^8 回)
+      const naiveSec = naiveOps / 1e8;
+      if (naiveSec >= 3600) {
+        document.getElementById('timeNaive').textContent = `約 ${(naiveSec / 3600).toFixed(1)} 時間 (約 ${Math.round(naiveSec).toLocaleString()} 秒)`;
+      } else if (naiveSec >= 60) {
+        document.getElementById('timeNaive').textContent = `約 ${(naiveSec / 60).toFixed(1)} 分 (約 ${Math.round(naiveSec).toLocaleString()} 秒)`;
+      } else {
+        document.getElementById('timeNaive').textContent = `約 ${naiveSec.toFixed(3)} 秒`;
+      }
+
+      // 半分全列挙 O(N^2 log(N^2)) = 2 * N^2 * log2(N)
+      const log2N = Math.log2(Math.max(2, N * N));
+      const meetOps = Math.round(N * N * log2N);
+      document.getElementById('opsMeet').textContent = "約 " + meetOps.toLocaleString() + " 回";
+
+      if (meetOps >= 1e6) {
+        document.getElementById('opsMeetWords').textContent = `（約 ${(meetOps / 1e6).toFixed(1)} 百万回）`;
+      } else {
+        document.getElementById('opsMeetWords').textContent = `（約 ${meetOps.toLocaleString()} 回）`;
+      }
+
+      const meetSec = meetOps / 1e8;
+      document.getElementById('timeMeet').textContent = meetSec < 0.001 ? '< 0.001 秒' : `約 ${meetSec.toFixed(3)} 秒`;
+    }
+
+    // --- タブ 4: 言語切り替え ---
+    function switchLang(lang) {
+      const cppBlock = document.getElementById('codeBlock-cpp');
+      const pyBlock = document.getElementById('codeBlock-python');
+      const cppBtn = document.getElementById('langBtn-cpp');
+      const pyBtn = document.getElementById('langBtn-python');
+
+      if (lang === 'cpp') {
+        cppBlock.classList.remove('hidden');
+        pyBlock.classList.add('hidden');
+        cppBtn.className = "px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition";
+        pyBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition";
+      } else {
+        cppBlock.classList.add('hidden');
+        pyBlock.classList.remove('hidden');
+        pyBtn.className = "px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition";
+        cppBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition";
+      }
+    }
+  </script>
+</body>
+</html>
