@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ProblemMeta } from '../types';
-import { X, Search, Check, ChevronRight } from 'lucide-react';
+import { ProblemMeta } from '../../types';
+import { X, Check, ChevronRight } from 'lucide-react';
+import { SearchInput } from '../molecules/SearchInput';
+import { Badge } from '../atoms/Badge';
 
-interface ProblemSelectModalProps {
+export interface ProblemSelectModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentProblemId: string;
@@ -70,7 +72,6 @@ export const ProblemSelectModal: React.FC<ProblemSelectModalProps> = ({
 
       {/* モーダル本体 */}
       <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] z-10 animate-in fade-in zoom-in-95 duration-200">
-        
         {/* モーダルヘッダー */}
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div>
@@ -92,17 +93,12 @@ export const ProblemSelectModal: React.FC<ProblemSelectModalProps> = ({
 
         {/* 検索バー */}
         <div className="p-4 border-b border-slate-100 bg-white">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="問題番号、タイトル、アルゴリズム名（例: 二分探索, A15）..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-              autoFocus
-            />
-          </div>
+          <SearchInput
+            placeholder="問題番号、タイトル、アルゴリズム名（例: 二分探索, A15）..."
+            value={searchQuery}
+            onChangeValue={setSearchQuery}
+            autoFocus
+          />
         </div>
 
         {/* 問題リスト（章ごとに表示） */}
@@ -145,24 +141,21 @@ export const ProblemSelectModal: React.FC<ProblemSelectModalProps> = ({
                           </span>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 text-sm">
-                                {p.title}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              <span className="font-bold text-slate-900 text-sm">{p.title}</span>
+                              <Badge
+                                variant={
                                   p.difficulty === 'Easy'
-                                    ? 'bg-emerald-100 text-emerald-700'
+                                    ? 'emerald'
                                     : p.difficulty === 'Medium'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}
+                                    ? 'amber'
+                                    : 'red'
+                                }
+                                size="sm"
                               >
                                 {p.difficulty}
-                              </span>
+                              </Badge>
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              {p.subtitle}
-                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">{p.subtitle}</div>
                           </div>
                         </div>
 
@@ -189,7 +182,6 @@ export const ProblemSelectModal: React.FC<ProblemSelectModalProps> = ({
         <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-400">
           Escキー または枠外クリックで閉じます
         </div>
-
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import React from 'react';
-import { ProblemMeta } from '../types';
+import { ProblemMeta } from '../../types';
 import { Menu, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Badge } from '../atoms/Badge';
 
-interface NavbarProps {
+export interface NavbarProps {
   currentProblem: ProblemMeta;
   allProblems: ProblemMeta[];
   onSelectProblem: (id: string) => void;
@@ -23,15 +24,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      {/* 最上部ナビバー */}
+      {/* 最上部バー */}
       <div className="bg-slate-900 text-slate-300 text-xs py-1.5 px-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-bold tracking-wide text-slate-300">📚 鉄則本アルゴリズム学習ビジュアライザー</span>
+            <span className="font-bold tracking-wide text-slate-300">
+              📚 鉄則本アルゴリズム学習ビジュアライザー
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* モーダルを開く問題一覧ボタン */}
             <button
               onClick={onOpenModal}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition shadow-sm"
@@ -47,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            {/* ハンバーガー＆前後の切り替え */}
+            {/* ナビゲーションボタン */}
             <div className="flex items-center gap-1">
               <button
                 onClick={onOpenModal}
@@ -68,9 +70,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              <span className="bg-indigo-600 text-white text-xs font-black tracking-wider uppercase px-2.5 py-1 rounded-md shadow-sm">
+              <Badge variant="indigo" size="md" className="!rounded-md uppercase tracking-wider font-black !bg-indigo-600 !text-white !border-transparent">
                 鉄則本 {currentProblem.id}
-              </span>
+              </Badge>
 
               {nextProblem && (
                 <button

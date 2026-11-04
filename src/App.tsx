@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PROBLEMS, getProblemById } from './problems/registry';
-import { Navbar } from './components/Navbar';
-import { ProblemSelectModal } from './components/ProblemSelectModal';
+import { Navbar, ProblemSelectModal } from './components/organisms';
 
 export const App: React.FC = () => {
   // 初期問題の決定（URLハッシュがあればそれを優先）
@@ -39,7 +38,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-      {/* ナビゲーションバー */}
+      {/* ナビゲーションバー (Organism) */}
       <Navbar
         currentProblem={currentProblem}
         allProblems={PROBLEMS}
@@ -53,7 +52,7 @@ export const App: React.FC = () => {
         <ProblemComponent onSetHeaderBadge={setHeaderBadge} />
       </div>
 
-      {/* 問題選択モーダル */}
+      {/* 問題選択モーダル (Organism) */}
       <ProblemSelectModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
